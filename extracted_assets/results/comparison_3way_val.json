@@ -1,0 +1,12 @@
+{
+  "split_used": "val",
+  "n_eval_samples": 2788520,
+  "climatology_rmse_degC": 1.2158029378339767,
+  "mlp_rmse_degC": 1.205660104751587,
+  "cnn_rmse_degC": 1.0749343633651733,
+  "climatology_mae_degC": 0.7823911360248764,
+  "mlp_mae_degC": 0.865515947341919,
+  "cnn_mae_degC": 0.7506564259529114,
+  "cnn_beats_mlp": true,
+  "cnn_beats_climatology": true
+}

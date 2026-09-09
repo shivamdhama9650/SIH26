@@ -7,6 +7,7 @@ import { PredictionForm } from "@/components/PredictionForm";
 import { OceanMap } from "@/components/OceanMap";
 import { TemperatureProfileChart } from "@/components/TemperatureProfileChart";
 import { DepthTable } from "@/components/DepthTable";
+import { MetricsSection } from "@/components/MetricsSection";
 import { PredictionMetadata } from "@/components/PredictionMetadata";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { LoadingState } from "@/components/LoadingState";
@@ -205,6 +206,7 @@ export default function DashboardPage() {
 
             {/* Prediction Metadata Card */}
             <PredictionMetadata prediction={prediction} />
+            <MetricsSection />
           </div>
         )}
       </main>

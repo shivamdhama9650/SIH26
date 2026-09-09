@@ -5,13 +5,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from config import settings
 from schemas import (
     PredictionRequest,
     PredictionResponse,
     HealthResponse,
     ConfigResponse,
-    SamplePoint
+    SamplePoint,
 )
 from model_service import model_service
 

@@ -1,0 +1,9 @@
+{
+  "n_points_used_for_pca": 20000,
+  "n_points_total": 11439860,
+  "explained_variance_ratio": [
+    0.22223803400993347,
+    0.13669933378696442
+  ],
+  "cumulative_variance_2pc": 0.3589373826980591
+}

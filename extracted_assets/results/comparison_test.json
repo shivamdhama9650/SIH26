@@ -1,0 +1,9 @@
+{
+  "split_used": "test",
+  "climatology_rmse_degC": 1.2305054824341244,
+  "mlp_rmse_degC": 1.16355299949646,
+  "climatology_mae_degC": 0.8367065433644402,
+  "mlp_mae_degC": 0.8313075304031372,
+  "mlp_beats_climatology": true,
+  "n_eval_samples": 2982286
+}

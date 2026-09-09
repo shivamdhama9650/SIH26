@@ -43,3 +43,14 @@ Thumbs.db
 # Turbopack & Next.js cache
 .turbo/
 next-env.d.ts
+
+# AI & Assistant files
+*CLAUDE*
+*claude*
+*AGENTS*
+*agents.md
+*gemini*
+.agent/
+.agents/
+.claude/
+

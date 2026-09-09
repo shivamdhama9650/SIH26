@@ -1,0 +1,26 @@
+{
+  "glorys_based_regional_analysis": {
+    "arabian_sea": {
+      "n_samples": 1885430,
+      "skipped": false,
+      "rmse": 1.017418622970581,
+      "mae": 0.7156455516815186,
+      "bias": -0.18025445938110352,
+      "correlation": 0.991111745932668
+    },
+    "bay_of_bengal": {
+      "n_samples": 1007010,
+      "skipped": false,
+      "rmse": 1.0754857063293457,
+      "mae": 0.7428246140480042,
+      "bias": 0.33484765887260437,
+      "correlation": 0.9930107390134816
+    },
+    "other": {
+      "n_samples": 0,
+      "skipped": true
+    }
+  },
+  "argo_independent_regional_validation": null,
+  "note": "These two sections are DIFFERENT things: the first is CNN vs GLORYS (training/reference target) on the test split; the second (if present) is CNN vs independent ARGO observations from Stage 4 - read as-is, not recomputed here."
+}
