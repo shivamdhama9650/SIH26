@@ -274,34 +274,40 @@ export const TemperatureProfileChart: React.FC<TemperatureProfileChartProps> = (
                 }}
               />
 
-              {/* Oceanographic Reference Markers positioned above lines with zero collision */}
+              {/* Oceanographic Reference Markers floated cleanly above lines */}
               <ReferenceLine
                 y={50}
                 stroke="#0284c7"
                 strokeDasharray="4 4"
-                label={{
-                  value: "Mixed Layer Depth (~50m)",
-                  position: "insideTopLeft",
-                  dx: 15,
-                  dy: -8,
-                  fill: "#0284c7",
-                  fontSize: 10,
-                  fontWeight: 600,
-                }}
+                label={({ viewBox }) => (
+                  <text
+                    x={viewBox.x + 15}
+                    y={viewBox.y - 8}
+                    fill="#0284c7"
+                    fontSize={11}
+                    fontWeight={600}
+                    textAnchor="start"
+                  >
+                    Mixed Layer Depth (~50m)
+                  </text>
+                )}
               />
               <ReferenceLine
                 y={200}
                 stroke="#64748b"
                 strokeDasharray="4 4"
-                label={{
-                  value: "Thermocline Base (~200m)",
-                  position: "insideTopRight",
-                  dx: -15,
-                  dy: -8,
-                  fill: "#64748b",
-                  fontSize: 10,
-                  fontWeight: 600,
-                }}
+                label={({ viewBox }) => (
+                  <text
+                    x={viewBox.x + viewBox.width - 15}
+                    y={viewBox.y - 8}
+                    fill="#475569"
+                    fontSize={11}
+                    fontWeight={600}
+                    textAnchor="end"
+                  >
+                    Thermocline Base (~200m)
+                  </text>
+                )}
               />
 
               {viewMode === "sound" && (
@@ -310,15 +316,18 @@ export const TemperatureProfileChart: React.FC<TemperatureProfileChartProps> = (
                   stroke="#7c3aed"
                   strokeWidth={2}
                   strokeDasharray="2 2"
-                  label={{
-                    value: `Sonic Layer (${sldPoint.depth}m) — Shadow Zone Below`,
-                    position: "insideTopLeft",
-                    dx: 15,
-                    dy: -8,
-                    fill: "#7c3aed",
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}
+                  label={({ viewBox }) => (
+                    <text
+                      x={viewBox.x + 15}
+                      y={viewBox.y - 8}
+                      fill="#7c3aed"
+                      fontSize={11}
+                      fontWeight={700}
+                      textAnchor="start"
+                    >
+                      Sonic Layer ({sldPoint.depth}m) — Shadow Zone Below
+                    </text>
+                  )}
                 />
               )}
 
