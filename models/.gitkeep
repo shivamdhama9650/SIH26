@@ -1,0 +1,2 @@
+# Place trained model checkpoints here
+# Expected primary checkpoint: cnn_best.pt
