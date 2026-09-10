@@ -1,70 +1,106 @@
 import os
 import sys
 from pathlib import Path
-import numpy as np
 import pandas as pd
-import torch
+import numpy as np
 
-# Ensure backend root is in Python path
-sys.path.append(str(Path(__file__).resolve().parent))
+backend_dir = Path(__file__).resolve().parent
+sys.path.append(str(backend_dir))
 
-import config
+from config import settings
 from model_service import ModelService
 
-def main():
-    # 1. Resolve paths
-    base_dir = Path(__file__).resolve().parent.parent
-    data_path = base_dir / "data" / "indian_ocean_index.csv"
-
-    if not data_path.exists():
-        print(f"Error: Could not find dataset at {data_path}")
+def run_argo_evaluation(sample_size=100):
+    data_csv = backend_dir.parent / "data" / "indian_ocean_index.csv"
+    
+    if not data_csv.exists():
+        print(f"Error: Dataset not found at {data_csv}")
         return
 
-    print("Loading Argo dataset...")
-    df = pd.read_csv(data_path)
+    print("--- 1. Loading Argo Indian Ocean Dataset ---")
+    df = pd.read_csv(data_csv)
     print(f"Total entries loaded: {len(df):,}")
 
-    # 2. Filter valid coordinates
-    df = df.dropna(subset=["latitude", "longitude"])
-
-    lat_min = getattr(config, "LAT_MIN", -40.0)
-    lat_max = getattr(config, "LAT_MAX", 30.0)
-    lon_min = getattr(config, "LON_MIN", 30.0)
-    lon_max = getattr(config, "LON_MAX", 120.0)
-
+    # Drop NaNs and filter inside the model's domain
+    df = df.dropna(subset=["latitude", "longitude", "date"])
     in_domain = df[
-        (df["latitude"] >= lat_min) & (df["latitude"] <= lat_max) &
-        (df["longitude"] >= lon_min) & (df["longitude"] <= lon_max)
+        (df["latitude"] >= settings.LAT_MIN) & (df["latitude"] <= settings.LAT_MAX) &
+        (df["longitude"] >= settings.LON_MIN) & (df["longitude"] <= settings.LON_MAX)
     ]
-    print(f"Profiles inside domain [{lat_min}, {lat_max}] x [{lon_min}, {lon_max}]: {len(in_domain):,}")
+    print(f"Profiles within Indian Ocean domain: {len(in_domain):,}")
 
-    # 3. Initialize Model
-    print("Initializing ModelService...")
+    sample_stations = in_domain.head(sample_size).copy()
+
+    print("\n--- 2. Initializing ModelService ---")
     service = ModelService()
+    print(f"Model mode: {getattr(service, 'active_mode', settings.MODEL_MODE)}")
 
-    # 4. Run test batch
-    sample_size = min(100, len(in_domain))
-    samples = in_domain.head(sample_size)
-    print(f"Running inference on {sample_size} sample float stations...")
+    results_records = []
+    depth_levels = getattr(settings, 'STANDARD_DEPTHS', [0, 10, 20, 30, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 1000])
 
-    results = []
-    for _, row in samples.iterrows():
+    print(f"\n--- 3. Running Inference on {len(sample_stations)} Stations ---")
+    for idx, row in sample_stations.iterrows():
         lat = float(row["latitude"])
         lon = float(row["longitude"])
-        try:
-            # Call prediction pipeline (adjust method name if your service uses predict or predict_profile)
-            if hasattr(service, "predict_profile"):
-                pred = service.predict_profile(lat, lon)
-            elif hasattr(service, "predict"):
-                pred = service.predict(lat, lon)
-            else:
-                pred = service.model(torch.randn(1, 1, 3, 3))
-            results.append(pred)
-        except Exception as err:
-            continue
+        date_str = str(row["date"])[:10]  # format: YYYY-MM-DD
 
-    print(f"Successfully evaluated {len(results)} stations.")
-    print("Testing pipeline completed successfully.")
+        try:
+            res = service.predict(latitude=lat, longitude=lon, date_str=date_str)
+            
+            # Extract predicted temperatures list from schemas.PredictionResponse
+            if hasattr(res, "profile"):
+                profile = [item.temperature if hasattr(item, "temperature") else item for item in res.profile]
+            elif hasattr(res, "temperatures"):
+                profile = res.temperatures
+            elif isinstance(res, dict):
+                profile = res.get("temperatures", res.get("profile", []))
+            else:
+                profile = list(res)
+
+            profile_vals = [float(t) for t in profile]
+            
+            record = {
+                "wmo": row.get("wmo", "N/A"),
+                "date": date_str,
+                "latitude": round(lat, 4),
+                "longitude": round(lon, 4),
+            }
+            # Attach depth columns
+            for i, temp in enumerate(profile_vals):
+                depth_name = f"depth_{depth_levels[i]}m" if i < len(depth_levels) else f"level_{i}"
+                record[depth_name] = round(temp, 2)
+            
+            results_records.append(record)
+
+        except Exception as e:
+            print(f"Error at station (Lat: {lat}, Lon: {lon}, Date: {date_str}): {e}")
+
+    print(f"\nSuccessfully evaluated {len(results_records)} / {len(sample_stations)} stations.")
+
+    if results_records:
+        results_df = pd.DataFrame(results_records)
+        output_file = backend_dir / "argo_test_results.csv"
+        results_df.to_csv(output_file, index=False)
+        print(f"[+] Output CSV exported to: {output_file.resolve()}")
+
+        # Compute statistics across all depth columns
+        temp_cols = [col for col in results_df.columns if col.startswith("depth_") or col.startswith("level_")]
+        temp_matrix = results_df[temp_cols].to_numpy()
+
+        print("\n" + "=" * 65)
+        print("                ARGO MODEL TESTING SUMMARY REPORT               ")
+        print("=" * 65)
+        print(f"Total Float Stations Evaluated : {len(results_records)}")
+        print(f"Vertical Depth Levels Tested   : {len(temp_cols)}")
+        print(f"Mean Ocean Temperature         : {np.nanmean(temp_matrix):.2f} °C")
+        print(f"Min / Max Temperature Range    : {np.nanmin(temp_matrix):.2f} °C to {np.nanmax(temp_matrix):.2f} °C")
+        if len(temp_cols) > 0:
+            print(f"Average Surface Temp ({temp_cols[0]}) : {np.nanmean(temp_matrix[:, 0]):.2f} °C")
+            print(f"Average Deep Temp ({temp_cols[-1]})  : {np.nanmean(temp_matrix[:, -1]):.2f} °C")
+        print("=" * 65)
+
+        print("\nFirst 3 Evaluation Station Samples:")
+        print(results_df[["wmo", "date", "latitude", "longitude"] + temp_cols[:3]].head(3).to_string(index=False))
 
 if __name__ == "__main__":
-    main()
+    run_argo_evaluation(sample_size=100)
