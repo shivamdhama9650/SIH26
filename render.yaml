@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: oceanxray-backend
+    runtime: docker
+    dockerContext: ./src/backend
+    dockerfilePath: ./src/backend/Dockerfile
+    plan: free
+    envVars:
+      - key: ML_SERVICE_URL
+        value: https://ml-model-oceanx.onrender.com
+      - key: MODEL_MODE
+        value: model
+      - key: FRONTEND_ORIGIN
+        value: "*"

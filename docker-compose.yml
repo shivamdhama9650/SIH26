@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: oceanxray-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ML_SERVICE_URL=https://ml-model-oceanx.onrender.com
+      - MODEL_MODE=model
+      - FRONTEND_ORIGIN=http://localhost:3000
+      - PORT=8000
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8000
+    container_name: oceanxray-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - PORT=3000
+    depends_on:
+      - backend
+    restart: unless-stopped
