@@ -57,3 +57,25 @@ next-env.d.ts
 
 data/
 *.csv
+
+
+# ============ ML Training — raw & processed data  ============
+ml-training/data/raw/
+ml-training/data/processed/
+ml-training/data/raw_argo/
+*.nc
+*.netcdf
+*.hdf
+*.h5
+
+# ============ Secrets — API keys  ============
+.netrc
+.cdsapirc
+*.cdsapirc
+
+# ============ Jupyter / Colab ============
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# ============ Model checkpoints ============
+# *.pt        

@@ -1,0 +1,28 @@
+# OceanXRay - Day 1 preprocessing requirements
+# Core (required)
+xarray>=2023.1.0
+numpy>=1.23
+pandas>=1.5
+netCDF4>=1.6
+scipy>=1.9
+matplotlib>=3.6
+dask>=2023.1.0
+
+# Regridding (optional but strongly recommended)
+# xESMF needs ESMF installed on the system (conda install -c conda-forge esmf xesmf is easiest).
+# The pipeline auto-detects xESMF and falls back to an xarray-based method if it's missing.
+xesmf>=0.7; platform_system != "Windows"
+
+# Only needed later (final tensor conversion) - not used on Day 1 logic itself
+torch>=2.0
+
+# Optional: only used for the bonus CNN embedding PCA sanity plot (Day 3).
+# If missing, that one optional plot is skipped with a clear message -
+# nothing else in the pipeline depends on it.
+scikit-learn>=1.0
+
+# --- Real data download clients (Stage 5 / download_real_data.py) ---
+# Copernicus Marine Service Python client (replaces motuclient + Marine Data Store)
+copernicusmarine>=1.0.0
+# ECMWF Climate Data Store API client (needed for ERA5 daily wind download)
+cdsapi>=0.7.0
