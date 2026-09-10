@@ -2,7 +2,7 @@
 
 **OceanXRay** is a satellite-embedding-based deep learning platform that reconstructs the **15-depth vertical subsurface ocean temperature profile** of the **North Indian Ocean** from daily surface satellite observations — built for **Smart India Hackathon 2026 — Problem Statement #26066 (OceanEmbed)**.
 
-The platform combines a **PyTorch CNN Encoder–Decoder** reconstruction model, a **FastAPI application backend**, a separate **FastAPI + PyTorch ML inference service**, and a **Next.js + TypeScript** scientific monitoring dashboard, validated post-hoc against real **Argo** profiling float observations.
+The platform combines a **PyTorch CNN Encoder–Decoder** reconstruction model, a separate **FastAPI + PyTorch ML inference service**, and a **Next.js + TypeScript** scientific monitoring dashboard, validated post-hoc against real **Argo** profiling float observations.
 
 ---
 
@@ -59,14 +59,14 @@ flowchart TD
     H --> I["Application Backend<br/>/predict · /health · /config"]
     I --> J["Next.js Scientific Dashboard<br/>Profile Chart · Depth Table · Ocean Map"]
 
-    J["GLORYS Reanalysis<br/>(Training Target: Temperature)"] -.training only.-> D
-    K["Gridded ARGO (INCOIS LAS)<br/>Independent In-situ Observations"] -.post-hoc validation only.-> G
-    K --> L["Argo Validation Pipeline<br/>1D Depth Interpolation → RMSE / MAE / Bias"]
+    K["GLORYS Reanalysis<br/>(Training Target: Temperature)"] -.training only.-> D
+    M["Gridded ARGO (INCOIS LAS)<br/>Independent In-situ Observations"] -.post-hoc validation only.-> G
+    M --> L["Argo Validation Pipeline<br/>1D Depth Interpolation → RMSE / MAE / Bias"]
     G --> L
 
 ```
 
-**Data flow in words:** daily surface fields are harmonized to a common 0.25° grid and represented as a 3×3 spatial patch. The production CNN consumes five channels — **SST, SSH, U-current, V-current, and V-wind** — and encodes them into a **32-D learned latent ocean embedding**, which is decoded by an MLP into a continuous 15-depth temperature profile. GLORYS reanalysis temperature supplies training targets; independent Gridded Argo observations are reserved purely for post-hoc skill evaluation.
+**Data flow in words:** daily surface fields are harmonized to a common 0.25° grid and represented as a 3×3 spatial patch. The production CNN consumes five channels — **SST, SSH, U-current, V-current, and V-wind** — and encodes them into a **32-D learned latent ocean embedding**, which is decoded by an MLP into a continuous 15-depth temperature profile. GLORYS reanalysis temperature supplies training targets; independent Gridded Argo observations are reserved purely for post-hoc skill evaluation. The web application communicates with the deployed ML inference API for predictions.
 
 ---
 
@@ -228,210 +228,158 @@ Bias = 1/N × Σ(y_pred − y_actual)          # negative = underestimate, posit
 
 ---
 
+## 🛠️ Technology Stack
+
+| Layer | Technologies |
+|---|---|
+| Frontend | **Next.js 16.3.4, React 19, TypeScript** |
+| Styling | **Tailwind CSS 4** |
+| Maps | **Leaflet, React-Leaflet** |
+| Visualization | **Recharts** |
+| UI / Icons | **Lucide React** |
+| ML Inference | **Python, FastAPI, PyTorch, Uvicorn** |
+| Model | **CNN Encoder–Decoder + MLP Decoder** |
+| Data / Training | **NumPy, Pandas, Xarray, NetCDF** |
+| Deployment | **Vercel (Frontend), Render (ML Inference)** |
+| Development | **Git, GitHub, Docker, npm** |
+
 ## 📁 Repository Structure
 
-The repository is organized as a monorepo under `src/`, with the frontend, backend, ML deployment service, and ML training pipeline kept as separate components.
+This repository contains the **OceanXRay web application**. It is a Next.js application that provides the interactive scientific dashboard and communicates with the deployed ML inference service.
 
 ```text
 SIH26/
 │
-├── src/
-│   │
-│   ├── backend/
-│   │   ├── config.py
-│   │   ├── main.py
-│   │   ├── model_service.py
-│   │   ├── preprocessing.py
-│   │   ├── schemas.py
-│   │   ├── requirements.txt
-│   │   └── tests/
-│   │       └── test_api.py
-│   │
-│   ├── frontend/
-│   │   ├── app/
-│   │   │   ├── dashboard/
-│   │   │   ├── about/
-│   │   │   ├── globals.css
-│   │   │   └── layout.tsx
-│   │   ├── components/
-│   │   ├── lib/
-│   │   │   └── api.ts
-│   │   └── package.json
-│   │
-│   ├── ml-deploy/
-│   │   ├── checkpoints/
-│   │   │   ├── cnn_best.pt
-│   │   │   └── mlp_best.pt
-│   │   ├── src/
-│   │   ├── predictor.py
-│   │   ├── app.py
-│   │   ├── requirements.txt
-│   │   └── Dockerfile
-│   │
-│   └── ml-training/
-│       └── # Model training, experiments & evaluation pipeline
+├── app/
+│   ├── dashboard/
+│   ├── about/
+│   ├── globals.css
+│   └── layout.tsx
 │
+├── components/
+├── lib/
+│   └── api.ts
+├── public/
+│
+├── Dockerfile
+├── .dockerignore
 ├── .gitignore
+├── next.config.ts
+├── package.json
+├── package-lock.json
+├── postcss.config.mjs
+├── eslint.config.mjs
+├── tsconfig.json
 └── README.md
-
 ```
 
-### Component responsibilities
+### Frontend responsibilities
 
-| Component Responsibility  |                                                               |
-| ------------------------- | ------------------------------------------------------------- |
-| `src/frontend/`           | Next.js scientific dashboard and visualization                |
-| `src/backend/`            | Application API, validation, preprocessing, and orchestration |
-| `src/ml-deploy/`          | Dockerized FastAPI model inference service                    |
-| `src/ml-training/`        | Model training, experiments, and research pipeline            |
-
-The trained `.pt` checkpoints belong to the **ML deployment service** and are kept under `src/ml-deploy/checkpoints/`, rather than at the repository root.
+| Component | Responsibility |
+|---|---|
+| `app/` | Next.js application routes, dashboard, scientific overview and server-side application logic |
+| `components/` | Reusable UI and visualization components |
+| `lib/api.ts` | Communication with the deployed prediction API and application service logic |
+| `public/` | Static assets and screenshots |
+| `Dockerfile` | Containerized frontend build and runtime |
 
 ## 🚀 Quick Start
 
-### 1. Backend Setup
-
-Requires Python 3.10+.
+Requires **Node.js 18+**.
 
 ```bash
-cd src/backend
-
-pip install -r requirements.txt
-
-# Run automated API tests
-python -m pytest tests/test_api.py -v
-
-# Start FastAPI development server
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-```
-
-- API: `https://sih26-1.onrender.com`
-- Docs: `https://sih26-1.onrender.com/docs`
-- Health: `https://sih26-1.onrender.com/health`
-- Config: `https://sih26-1.onrender.com/config`
-
-### 2. Frontend Setup
-
-Requires Node.js 18+.
-
-```bash
-cd src/frontend
-
 npm install
-npm run dev -- -p 3001
-
+npm run dev
 ```
+
+The development server will be available at:
+
+```text
+http://localhost:3000
+```
+
+For a production build:
+
+```bash
+npm run build
+npm start
+```
+
+### Live Frontend
 
 - Dashboard: `https://sih-26-hp9x.vercel.app/dashboard`
 - Scientific overview: `https://sih-26-hp9x.vercel.app/about`
 
----
-
 ## ⚙️ Service Configuration
 
-The production architecture separates the application backend from the ML inference service.
-
-The backend should use the deployed ML service through:
+The frontend communicates with the deployed ML inference service:
 
 ```env
-ML_SERVICE_URL=https://ml-model-oceanx.onrender.com
-FRONTEND_ORIGIN=https://sih-26-hp9x.vercel.app
-
+NEXT_PUBLIC_API_URL=https://ml-model-oceanx.onrender.com
 ```
 
-The trained PyTorch checkpoint is owned by `src/ml-deploy/` and is loaded by the ML inference service. The backend does not need to load `cnn_best.pt` directly.
+For local development, this variable can point to a locally running ML inference service.
 
-For local development, `ML_SERVICE_URL` can point to a locally running ML inference service if desired.
-
----
+Private credentials and local `.env` files should not be committed to the repository.
 
 ## 📡 API Reference
 
+### ML Inference API
+
+**Base URL:** `https://ml-model-oceanx.onrender.com`
+
 ### `GET /health`
 
-Service availability, model loading status, active inference mode.
+Returns ML service availability, normalization status, active CNN channels and output depths.
 
-### `GET /config`
+### `POST /predict/cnn`
 
-```json
-{
-  "latitude_min": 5.0,
-  "latitude_max": 30.0,
-  "longitude_min": 45.0,
-  "longitude_max": 105.0,
-  "num_depths": 15,
-  "depths": [0.0, 5.0, 10.0, 20.0, 30.0, 50.0, 75.0, 100.0, 125.0, 150.0, 200.0, 300.0, 500.0, 700.0, 1000.0],
-  "patch_size": 3,
-  "domain_name": "North Indian Ocean (5°N–30°N, 45°E–105°E)",
-  "architecture": "3×3 CNN Encoder + 32-D Latent Embedding + MLP Decoder"
-}
-
-```
-
-### `POST /predict`
-
-```bash
-curl -X POST "https://sih26-1.onrender.com/predict" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "latitude": 18.50,
-       "longitude": 65.00,
-       "date": "2025-01-15"
-     }'
-
-```
+The production CNN accepts a 3×3 patch for each of its five input channels:
 
 ```json
 {
-  "success": true,
-  "mode": "model",
-  "is_demo": false,
-  "location": { "latitude": 18.5, "longitude": 65.0 },
-  "date": "2025-01-15",
-  "depths": [0.0, 5.0, 10.0, 20.0, 30.0, 50.0, 75.0, 100.0, 125.0, 150.0, 200.0, 300.0, 500.0, 700.0, 1000.0],
-  "temperatures": [25.55, 25.47, 25.39, 25.31, 25.20, 22.84, 19.86, 17.26, 15.00, 13.56, 11.08, 8.22, 6.78, 5.92, 4.81],
-  "surface_input_summary": {
-    "patch_size": "3x3",
-    "channels": ["SST (°C)", "SSH (m)", "U-current (m/s)", "V-current (m/s)", "V-wind (m/s)"]
-  },
-  "metadata": {
-    "model_name": "OceanXRay-OceanCNNEncoderDecoder",
-    "inference_time_ms": 0.72
+  "patch": {
+    "sst": [[0,0,0],[0,0,0],[0,0,0]],
+    "ssh": [[0,0,0],[0,0,0],[0,0,0]],
+    "u_current": [[0,0,0],[0,0,0],[0,0,0]],
+    "v_current": [[0,0,0],[0,0,0],[0,0,0]],
+    "v_wind": [[0,0,0],[0,0,0],[0,0,0]]
   }
 }
-
 ```
 
-> Response values above are illustrative; actual model-mode predictions are generated dynamically by the loaded checkpoint.
+The response contains the predicted temperatures at the 15 standard depths:
 
----
+```json
+{
+  "model": "cnn",
+  "depths_m": [0, 5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 300, 500, 700, 1000],
+  "temperature_degC": [25.55, 25.47, 25.39, 25.31, 25.20, 22.84, 19.86, 17.26, 15.00, 13.56, 11.08, 8.22, 6.78, 5.92, 4.81],
+  "stats_used": true
+}
+```
+
+> Response values above are illustrative; actual predictions are generated dynamically by the deployed checkpoint.
 
 ## 🛡️ Validation & Error Handling
 
-- Latitude must be within **5.0°N – 30.0°N**; longitude within **45.0°E – 105.0°E** — else `400 Bad Request`.
-- Invalid date strings return `400 Bad Request`.
-- Frontend remains usable when the backend is offline: connection status banner, retry, loading states, and clear model/demo indicators.
-
----
+- The application validates geographic and date inputs before requesting predictions.
+- The ML inference API validates the expected 3×3 patch structure and model input channels.
+- The frontend provides loading, error and connection-state feedback when the prediction service is unavailable.
 
 ## 🧪 Testing
 
 ```bash
-# Backend
-python -m pytest src/backend/tests/test_api.py -v
+# Lint
+npm run lint
 
-# Frontend production build
-cd src/frontend && npm run build
-
+# Production build
+npm run build
 ```
-
----
 
 ## 🔬 Reproducing the Argo Validation Benchmark
 
 ```bash
-cd src/backend
 pip install netCDF4 xarray scipy requests pandas
 
 # configure the active model/inference environment as required by the evaluation script
@@ -445,96 +393,65 @@ The script reads the Argo candidate catalog, selects in-domain profiles, downloa
 
 ## 🌐 Live Deployment
 
-OceanXRay is deployed as three connected cloud services:
+OceanXRay consists of a web frontend and an independently deployed ML inference service:
 
 ```text
-┌──────────────────────┐
-│   Next.js Frontend   │
-│        Vercel        │
-└──────────┬───────────┘
-           │ HTTPS
-           ▼
-┌──────────────────────┐
-│     Backend API      │
-│        Render        │
-└──────────┬───────────┘
-           │
-           │ POST /predict/cnn
-           ▼
-┌──────────────────────┐
-│   ML Inference API   │
-│        Render        │
-│   FastAPI + PyTorch  │
-└──────────────────────┘
-
+┌─────────────────────────┐
+│    Next.js Web Application     │
+│         Vercel          │
+└────────────┬────────────┘
+             │ HTTPS
+             │ prediction request
+             ▼
+┌─────────────────────────┐
+│    ML Inference API     │
+│         Render          │
+│   FastAPI + PyTorch     │
+│      /predict/cnn       │
+└─────────────────────────┘
 ```
 
 ### Live services
 
-- **Frontend:** https://sih-26-hp9x.vercel.app/
-- **Backend:** https://sih26-1.onrender.com
-- **ML Inference API:** https://ml-model-oceanx.onrender.com/
+- **Frontend:** `https://sih-26-hp9x.vercel.app/`
+- **ML Inference API:** `https://ml-model-oceanx.onrender.com/`
 
 ### API documentation
 
-- **Backend Swagger/OpenAPI:** https://sih26-1.onrender.com/docs
-- **ML Swagger/OpenAPI:** https://ml-model-oceanx.onrender.com/docs
-- **Backend health:** https://sih26-1.onrender.com/health
-- **ML health:** https://ml-model-oceanx.onrender.com/health
+- **ML Swagger/OpenAPI:** `https://ml-model-oceanx.onrender.com/docs`
+- **ML health:** `https://ml-model-oceanx.onrender.com/health`
 
-The frontend communicates with the backend, while the backend communicates with the independently deployed ML inference service. The frontend does not directly invoke the model service.
+The frontend communicates with the independently deployed ML inference service and visualizes the returned 15-depth temperature profile.
 
 ---
 
-## 🔗 Backend ↔ ML Service Integration
-
-The trained model is deployed independently from the application backend.
+## 🔗 Frontend ↔ ML Service Integration
 
 ```text
-Frontend
-   │
-   │ POST /predict
-   │ { latitude, longitude, date }
-   ▼
-Backend
-   │
-   │ validation + preprocessing
-   │
-   │ construct model input
-   ▼
-ML Inference Service
-   │
-   │ POST /predict/cnn
-   ▼
+User
+  │
+  ▼
+Next.js Web Application
+  │
+  │ prediction request
+  ▼
+ML Inference API
+  │
+  │ /predict/cnn
+  ▼
 OceanCNNEncoderDecoder
-   │
-   │ 15-depth temperature profile
-   ▼
-Backend
-   │
-   │ frontend-friendly response
-   ▼
-Frontend
-   │
-   ├── Temperature profile chart
-   ├── Depth table
-   ├── Ocean map
-   └── Prediction metadata
-
+  │
+  │ 15-depth temperature profile
+  ▼
+Next.js Web Application
+  │
+  ├── Temperature profile chart
+  ├── Depth table
+  ├── Ocean map
+  └── Prediction metadata
 ```
 
-This separation keeps model serving independent from the application layer and allows the ML service to be updated or redeployed independently.
-
-The backend uses the deployed ML service through an environment variable:
-
-```env
-ML_SERVICE_URL=https://ml-model-oceanx.onrender.com
-
-```
-
-Private credentials and local `.env` files should not be committed to the repository.
-
----
+This separation keeps the web application and model-serving layer independently deployable.
 
 ## ⚠️ Scientific Interpretation & Limitations
 
