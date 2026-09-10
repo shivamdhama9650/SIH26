@@ -89,6 +89,7 @@ class ModelService:
             }
             endpoint = f"{self.ml_service_url}/predict/cnn"
             
+            ml_data = None
             try:
                 logger.info(f"Calling Render ML service at {endpoint} for lat={latitude}, lon={longitude}")
                 resp = requests.post(
@@ -97,60 +98,60 @@ class ModelService:
                     timeout=settings.ML_TIMEOUT_SECONDS,
                     headers={"Content-Type": "application/json"}
                 )
+                if resp.status_code == 200:
+                    ml_data = resp.json()
+                else:
+                    logger.warning(f"Render ML service returned status {resp.status_code}: {resp.text}")
             except requests.exceptions.Timeout:
-                logger.error(f"Render ML service timed out after {settings.ML_TIMEOUT_SECONDS}s at {endpoint}")
-                raise HTTPException(
-                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                    detail=f"OceanXRay ML inference service timed out ({settings.ML_TIMEOUT_SECONDS}s). "
-                           "The service on Render may be waking up from cold sleep; please retry in a few seconds."
-                )
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Failed to connect to Render ML service at {endpoint}: {e}")
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"Unable to connect to OceanXRay ML inference service on Render ({endpoint}). Error: {str(e)}"
-                )
-
-            if resp.status_code != 200:
-                logger.error(f"Render ML service responded with HTTP {resp.status_code}: {resp.text}")
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"OceanXRay ML inference service returned error (HTTP {resp.status_code}): {resp.text}"
-                )
-
-            try:
-                ml_data = resp.json()
-                depths_raw = ml_data["depths_m"]
-                temps_raw = ml_data["temperature_degC"]
-                if not isinstance(depths_raw, list) or not isinstance(temps_raw, list):
-                    raise ValueError("depths_m and temperature_degC must be lists")
-                depths = [float(d) for d in depths_raw]
-                temperatures = [round(float(t), 2) for t in temps_raw]
+                logger.warning(f"Render ML service timed out after {settings.ML_TIMEOUT_SECONDS}s at {endpoint}. Using resilient fallback.")
             except Exception as e:
-                logger.error(f"Invalid response payload from Render ML service: {resp.text} - Error: {e}")
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"Invalid response payload received from OceanXRay ML inference service: {e}"
-                )
+                logger.warning(f"Failed to connect to Render ML service at {endpoint}: {e}. Using resilient fallback.")
 
+            if ml_data and "depths_m" in ml_data and "temperature_degC" in ml_data:
+                try:
+                    depths = [float(d) for d in ml_data["depths_m"]]
+                    temperatures = [round(float(t), 2) for t in ml_data["temperature_degC"]]
+                    elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
+                    return PredictionResponse(
+                        success=True,
+                        mode="model",
+                        is_demo=False,
+                        location=LocationResponse(latitude=latitude, longitude=longitude),
+                        date=date_str,
+                        depths=depths,
+                        temperatures=temperatures,
+                        surface_input_summary=patch_summary,
+                        metadata={
+                            "model_name": "OceanXRay-CNN-Render",
+                            "endpoint": endpoint,
+                            "inference_time_ms": elapsed_ms,
+                            "stats_used": ml_data.get("stats_used", True),
+                            "scientific_notice": "Inferred from live OceanXRay CNN model hosted on Render."
+                        },
+                        warning_notice=None
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed parsing ML data: {e}. Falling back.")
+
+            # If remote ML call failed, timed out, or returned an error, seamlessly fall back
+            mock_temps = self._generate_mock_profile(latitude, longitude, date_str)
             elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
             return PredictionResponse(
                 success=True,
-                mode="model",
-                is_demo=False,
+                mode="mock",
+                is_demo=True,
                 location=LocationResponse(latitude=latitude, longitude=longitude),
                 date=date_str,
-                depths=depths,
-                temperatures=temperatures,
+                depths=self.depths,
+                temperatures=mock_temps,
                 surface_input_summary=patch_summary,
                 metadata={
-                    "model_name": "OceanXRay-CNN-Render",
+                    "model_name": "OceanXRay-Resilient-Fallback",
                     "endpoint": endpoint,
                     "inference_time_ms": elapsed_ms,
-                    "stats_used": ml_data.get("stats_used", True),
-                    "scientific_notice": "Inferred from live OceanXRay CNN model hosted on Render."
+                    "scientific_notice": "FALLBACK DATA: Render ML service is waking up or unavailable."
                 },
-                warning_notice=None
+                warning_notice="Render ML service timed out or unavailable. Profile generated via oceanographic model."
             )
 
         # 3. Deterministic Mock Mode Fallback

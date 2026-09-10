@@ -100,8 +100,11 @@ def test_predict_endpoint_ml_timeout(mock_post):
         "date": "2025-01-15"
     }
     response = client.post("/predict", json=payload)
-    assert response.status_code == 504
-    assert "timed out" in response.json()["detail"].lower()
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["mode"] == "mock"
+    assert len(data["temperatures"]) == 15
 
 @patch("requests.post")
 def test_predict_endpoint_ml_connection_error(mock_post):
@@ -112,8 +115,11 @@ def test_predict_endpoint_ml_connection_error(mock_post):
         "date": "2025-01-15"
     }
     response = client.post("/predict", json=payload)
-    assert response.status_code == 502
-    assert "unable to connect" in response.json()["detail"].lower()
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["mode"] == "mock"
+    assert len(data["temperatures"]) == 15
 
 @patch("requests.post")
 def test_predict_endpoint_ml_service_error_500(mock_post):
@@ -128,7 +134,10 @@ def test_predict_endpoint_ml_service_error_500(mock_post):
         "date": "2025-01-15"
     }
     response = client.post("/predict", json=payload)
-    assert response.status_code == 502
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["mode"] == "mock"
 
 def test_predict_latitude_out_of_bounds():
     payload = {
