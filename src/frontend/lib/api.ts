@@ -49,6 +49,9 @@ export interface PredictionResponse {
     center_sst_celsius: number;
     center_sss_psu: number;
     center_ssh_meters: number;
+    center_u_current?: number;
+    center_v_current?: number;
+    center_v_wind?: number;
     channels: string[];
   };
   metadata: {

@@ -1,5 +1,7 @@
 import pytest
+from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
+import requests
 import sys
 import os
 
@@ -11,6 +13,13 @@ from config import settings
 
 client = TestClient(app)
 
+MOCK_ML_RESPONSE = {
+    "model": "cnn",
+    "depths_m": [0.0, 5.0, 10.0, 20.0, 30.0, 50.0, 75.0, 100.0, 125.0, 150.0, 200.0, 300.0, 500.0, 700.0, 1000.0],
+    "temperature_degC": [28.75, 28.64, 28.62, 28.60, 28.54, 28.12, 26.62, 23.82, 20.60, 17.90, 14.93, 12.56, 10.84, 9.42, 7.32],
+    "stats_used": True
+}
+
 def test_health_endpoint():
     response = client.get("/health")
     assert response.status_code == 200
@@ -18,6 +27,7 @@ def test_health_endpoint():
     assert data["status"] == "ok"
     assert data["mode"] in ["mock", "model"]
     assert "model_loaded" in data
+    assert "https://ml-model-oceanx.onrender.com" in data["model_path"]
 
 def test_config_endpoint():
     response = client.get("/config")
@@ -30,7 +40,7 @@ def test_config_endpoint():
     assert data["num_depths"] == 15
     assert len(data["depths"]) == 15
     assert data["depths"][0] == 0.0
-    assert data["depths"][-1] == 1500.0
+    assert data["depths"][-1] == 1000.0
 
 def test_sample_points_endpoint():
     response = client.get("/sample-points")
@@ -41,7 +51,14 @@ def test_sample_points_endpoint():
         assert 5.0 <= pt["latitude"] <= 30.0
         assert 45.0 <= pt["longitude"] <= 105.0
 
-def test_predict_endpoint_valid():
+@patch("requests.post")
+def test_predict_endpoint_success_with_mocked_ml(mock_post):
+    # Configure mock response from Render ML service
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = MOCK_ML_RESPONSE
+    mock_post.return_value = mock_resp
+
     payload = {
         "latitude": 18.5,
         "longitude": 72.5,
@@ -50,16 +67,68 @@ def test_predict_endpoint_valid():
     response = client.post("/predict", json=payload)
     assert response.status_code == 200
     data = response.json()
+    
     assert data["success"] is True
-    assert data["mode"] == "mock"
-    assert data["is_demo"] is True
+    assert data["mode"] == "model"
+    assert data["is_demo"] is False
     assert len(data["depths"]) == 15
     assert len(data["temperatures"]) == 15
-    # Surface temperature should be higher than deep ocean temperature
-    assert data["temperatures"][0] > data["temperatures"][-1]
+    assert data["temperatures"][0] == 28.75
+    assert data["temperatures"][-1] == 7.32
     assert data["location"]["latitude"] == 18.5
     assert data["location"]["longitude"] == 72.5
-    assert "warning_notice" in data
+    assert "surface_input_summary" in data
+    assert "metadata" in data
+    assert data["metadata"]["model_name"] == "OceanXRay-CNN-Render"
+
+    # Verify requests.post was called with the exact expected payload structure
+    mock_post.assert_called_once()
+    args, kwargs = mock_post.call_args
+    assert "patch" in kwargs["json"]
+    patch_dict = kwargs["json"]["patch"]
+    for ch in ["sst", "ssh", "u_current", "v_current", "v_wind"]:
+        assert ch in patch_dict
+        assert len(patch_dict[ch]) == 3
+        assert len(patch_dict[ch][0]) == 3
+
+@patch("requests.post")
+def test_predict_endpoint_ml_timeout(mock_post):
+    mock_post.side_effect = requests.exceptions.Timeout("Connection timed out")
+    payload = {
+        "latitude": 18.5,
+        "longitude": 72.5,
+        "date": "2025-01-15"
+    }
+    response = client.post("/predict", json=payload)
+    assert response.status_code == 504
+    assert "timed out" in response.json()["detail"].lower()
+
+@patch("requests.post")
+def test_predict_endpoint_ml_connection_error(mock_post):
+    mock_post.side_effect = requests.exceptions.ConnectionError("Failed to reach host")
+    payload = {
+        "latitude": 18.5,
+        "longitude": 72.5,
+        "date": "2025-01-15"
+    }
+    response = client.post("/predict", json=payload)
+    assert response.status_code == 502
+    assert "unable to connect" in response.json()["detail"].lower()
+
+@patch("requests.post")
+def test_predict_endpoint_ml_service_error_500(mock_post):
+    mock_resp = MagicMock()
+    mock_resp.status_code = 500
+    mock_resp.text = "Internal Server Error in model"
+    mock_post.return_value = mock_resp
+
+    payload = {
+        "latitude": 18.5,
+        "longitude": 72.5,
+        "date": "2025-01-15"
+    }
+    response = client.post("/predict", json=payload)
+    assert response.status_code == 502
 
 def test_predict_latitude_out_of_bounds():
     payload = {

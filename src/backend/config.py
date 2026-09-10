@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -9,8 +9,9 @@ class Settings(BaseSettings):
     APP_NAME: str = "OceanXRay API"
     APP_VERSION: str = "1.0.0"
     MODEL_MODE: str = os.getenv("MODEL_MODE", "model").lower()  # "model" or "mock"
-    MODEL_PATH: str = os.getenv("MODEL_PATH", "models/cnn_best.pt")
-    NORMALIZATION_STATS_PATH: str = os.getenv("NORMALIZATION_STATS_PATH", "models/normalization_stats.json")
+    ML_SERVICE_URL: str = os.getenv("ML_SERVICE_URL", "https://ml-model-oceanx.onrender.com")
+    ML_TIMEOUT_SECONDS: float = float(os.getenv("ML_TIMEOUT_SECONDS", "25.0"))
+    NORMALIZATION_STATS_PATH: str = os.getenv("NORMALIZATION_STATS_PATH", "normalization_stats.json")
     FRONTEND_ORIGIN: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
     
     # North Indian Ocean domain bounds

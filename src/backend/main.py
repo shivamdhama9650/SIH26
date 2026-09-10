@@ -78,7 +78,7 @@ async def health_check():
         status="ok",
         model_loaded=model_service.model_loaded,
         mode=model_service.active_mode,
-        model_path=settings.MODEL_PATH
+        model_path=settings.ML_SERVICE_URL
     )
 
 
@@ -157,6 +157,8 @@ async def predict_profile(request: PredictionRequest):
             date_str=request.date
         )
         return response
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Prediction failed for request {request}: {str(e)}", exc_info=True)
         raise HTTPException(

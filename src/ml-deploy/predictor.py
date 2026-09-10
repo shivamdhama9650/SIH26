@@ -33,7 +33,7 @@ from src.cnn_model import PatchCNN
 from src.mlp_model import PointMLP
 
 HERE = Path(__file__).resolve().parent
-CKPT_DIR = HERE / "checkpoints"
+CKPT_DIR = (HERE / "checkpoints") if (HERE / "checkpoints").exists() else (HERE / "models")
 STATS_PATH = HERE / "normalization_stats.json"
 
 
