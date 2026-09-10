@@ -43,8 +43,9 @@ allowed_origins = list(set(allowed_origins))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_origins=allowed_origins if settings.FRONTEND_ORIGIN != "*" else ["*"],
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
+    allow_credentials=True if settings.FRONTEND_ORIGIN != "*" else False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
